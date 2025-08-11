@@ -20,7 +20,7 @@ namespace APiLoginWebApplication.Controllers
         public IActionResult Login([FromBody] LoginRequest request)
         {
             var user = _context.Users.FirstOrDefault(u => u.Username == request.Username && u.PasswordHash == request.Password);
-
+            //var user1 = _context.Users;
             if (user == null)
                 return Unauthorized(new { message = "Invalid username or password" });
 
