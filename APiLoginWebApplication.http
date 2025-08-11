@@ -1,0 +1,6 @@
+@APiLoginWebApplication_HostAddress = http://localhost:5115
+
+GET {{APiLoginWebApplication_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
