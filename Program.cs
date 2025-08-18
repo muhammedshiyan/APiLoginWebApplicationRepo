@@ -1,7 +1,38 @@
-using Microsoft.EntityFrameworkCore;
 using APiLoginWebApplication.Data;
+using APiLoginWebApplication.Helpers;
+using APiLoginWebApplication.Services;
+using APiLoginWebApplication.Services.Interfaces;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+// JWT settings
+var key = Encoding.ASCII.GetBytes("YourSuperSecretKeyHere123!");
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddAuthentication(x =>
+{
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(x =>
+{
+    x.RequireHttpsMetadata = false;
+    x.SaveToken = true;
+    x.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ClockSkew = TimeSpan.Zero // no extra delay after expiry
+    };
+});
+
+
 // Add CORS policy
 builder.Services.AddCors(options =>
 {

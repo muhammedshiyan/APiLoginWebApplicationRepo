@@ -1,0 +1,1 @@
+Install-Package Microsoft.AspNetCore.Authentication.JwtBearer -Version 8.0.8

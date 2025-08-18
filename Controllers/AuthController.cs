@@ -1,40 +1,54 @@
-﻿using APiLoginWebApplication.Data;
-using Microsoft.AspNetCore.Authorization;
+﻿using APiLoginWebApplication.Models;
+using APiLoginWebApplication.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 
 namespace APiLoginWebApplication.Controllers
 {
-    [AllowAnonymous]
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IAuthService _authService;
 
-        public AuthController(AppDbContext context)
+        public AuthController(IAuthService authService)
         {
-            _context = context;
+            _authService = authService;
         }
 
-        [AllowAnonymous]
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest request)
         {
-            var user = _context.Users.FirstOrDefault(u => u.Username == request.EmailId && u.PasswordHash == request.password);
-            //var user1 = _context.Users;
-            if (user == null)
-                return Unauthorized(new { message = "Invalid username or password" });
-
-            return Ok(new { message = "Login successful" });
+            try
+            {
+                var response = _authService.Login(request);
+                return Ok(response);
+            }
+            catch
+            {
+                return Unauthorized("Invalid credentials");
+            }
         }
 
+        [HttpPost("refresh")]
+        public IActionResult Refresh([FromBody] TokenRequest request)
+        {
+            var principal = _authService.GetPrincipalFromExpiredToken(request.Token);
+            if (principal == null)
+                return BadRequest("Invalid token");
 
-    }
+            var username = principal.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+                return Unauthorized("Invalid username in token");
 
-    public class LoginRequest
-    {
-        public string EmailId { get; set; }
-        public string password { get; set; }
+            // issue new tokens
+            var newJwt = _authService.GenerateJwtToken(username);
+            var newRefresh = _authService.GenerateRefreshToken();
+
+            return Ok(new LoginResponse
+            {
+                Token = newJwt,
+                RefreshToken = newRefresh
+            });
+        }
     }
 }
