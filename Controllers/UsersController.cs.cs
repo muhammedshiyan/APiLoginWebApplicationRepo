@@ -21,7 +21,7 @@ namespace APiLoginWebApplication.Controllers
 
             // hash password (for demo only, use BCrypt/Identity in production)
             user.PasswordHash = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(user.PasswordHash));
-            user.RoleId = 1;
+           // user.RoleId = 1;
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return Ok(new { message = "User registered successfully" });
