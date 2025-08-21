@@ -29,7 +29,7 @@ namespace APiLoginWebApplication.Services
             // Fake validation (replace with DB validation)
 
 
-            var user = _context.Users.FirstOrDefault(u => u.Username == request.EmailId && u.PasswordHash == request.password);
+            var user = _context.Users.FirstOrDefault(u => u.Name == request.EmailId && u.PasswordHash == request.password);
             //var user1 = _context.Users;
             if (user == null)
                 throw new ArgumentException("User ID must be a positive number.");
