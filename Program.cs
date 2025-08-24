@@ -13,6 +13,7 @@ var key = Encoding.ASCII.GetBytes("YourSuperSecretKeyHere123!");
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
