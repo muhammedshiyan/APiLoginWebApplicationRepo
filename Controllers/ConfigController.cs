@@ -8,7 +8,7 @@ namespace APiLoginWebApplication.Controllers
 {
     [ApiController]
     [Route("api/[Controller]")]
-    public class ConfigController : Controller
+    public class ConfigController : ControllerBase
     {
 
         private readonly AppDbContext _context;
@@ -19,7 +19,7 @@ namespace APiLoginWebApplication.Controllers
             _configuration = configuration;
             _context = context;
         }
-       
+        
         [HttpGet("config")]
         public IActionResult GetConfigData()
         {

@@ -62,6 +62,16 @@ builder.Services.AddSwaggerGen();
 // Connect EF Core to SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+//error prevention for swagger
+builder.Services.AddSwaggerGen(c =>
+{
+    c.CustomSchemaIds(type =>
+    {
+        // Use full name to avoid conflicts
+        return type.FullName;
+    });
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -70,6 +80,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+
 
 // Enable CORS before controllers
 app.UseCors("AllowAll");
