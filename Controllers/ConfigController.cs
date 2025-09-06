@@ -22,7 +22,7 @@ namespace APiLoginWebApplication.Controllers
         
         [HttpGet("config")]
         public IActionResult GetConfigData()
-        {
+         {
 
             var configList = new List<Dictionary<string, object>>();
 

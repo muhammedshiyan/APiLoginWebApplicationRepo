@@ -72,6 +72,17 @@ builder.Services.AddSwaggerGen(c =>
         return type.FullName;
     });
 });
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddScoped<IPaymentService, MockPaymentService>();
+}
+else
+{
+    builder.Services.AddScoped<IPaymentService, PaymentService>();
+}
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
