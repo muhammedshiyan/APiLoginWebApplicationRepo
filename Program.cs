@@ -73,14 +73,15 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddScoped<IPaymentService, MockPaymentService>();
-}
-else
-{
-    builder.Services.AddScoped<IPaymentService, PaymentService>();
-}
+//if (builder.Environment.IsDevelopment())
+//{
+//    builder.Services.AddScoped<IPaymentService, MockPaymentService>();
+//}
+//else
+////{
+//builder.Services.AddScoped<IPaymentService, PaymentService>();
+//}
+builder.Services.AddHttpClient<IPaymentService, PaymentService>();
 
 
 var app = builder.Build();

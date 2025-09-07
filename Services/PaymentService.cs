@@ -1,5 +1,4 @@
-﻿using System.Net.Http.Headers;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using APiLoginWebApplication.Models;
@@ -18,34 +17,58 @@ namespace APiLoginWebApplication.Services
             _config = config;
         }
 
-        private string MerchantId => _config["Payment:MerchantId"]!;
-        private string SaltKey => _config["Payment:SaltKey"]!;
-        private string BaseUrl => _config["Payment:BaseUrl"]!; // sandbox or production
+        private string MerchantId => _config["Payment:MerchantId"] ?? throw new InvalidOperationException("MerchantId missing");
+        private string SaltKey => _config["Payment:SaltKey"] ?? throw new InvalidOperationException("SaltKey missing");
+        private string SaltIndex => _config["Payment:SaltIndex"] ?? "1";
+        private string BaseUrl => _config["Payment:BaseUrl"] ?? throw new InvalidOperationException("BaseUrl missing");
+        private string RedirectUrl => _config["Payment:RedirectUrl"] ?? "";
+        private string CallbackUrl => _config["Payment:CallbackUrl"] ?? "";
 
-        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderDto createDto, string idempotencyKey = null)
+        /// <summary>
+        /// Creates a new order in PhonePe
+        /// </summary>
+        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderDto createDto, string? idempotencyKey = null)
         {
-            var payload = new
+            // 1. Build payload
+            var payloadObj = new
             {
                 merchantId = MerchantId,
-                transactionId = createDto.OrderId,
-                amount = createDto.Amount,
-                currency = createDto.Currency,
-                customerId = createDto.CustomerId,
-                redirectUrl = _config["Payment:RedirectUrl"]
+                merchantTransactionId = createDto.OrderId,
+                amount = (int)(createDto.Amount * 100), // convert ₹ to paise
+                merchantUserId = string.IsNullOrEmpty(createDto.CustomerId) ? "guest" : createDto.CustomerId,
+                redirectUrl = RedirectUrl,
+                redirectMode = "POST",
+                callbackUrl = CallbackUrl,
+                paymentInstrument = new { type = "PAY_PAGE" }
             };
 
-            string json = JsonSerializer.Serialize(payload);
-            string signature = GenerateSignature(json);
+            string payloadJson = JsonSerializer.Serialize(payloadObj, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            string base64Payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(payloadJson));
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/orders");
-            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            string apiEndpoint = "/pg/v1/pay";
+            string requestUrl = $"{BaseUrl.TrimEnd('/')}{apiEndpoint}";
+
+            // Signature
+            string signature = GeneratePaySignature(base64Payload, apiEndpoint);
+
+            // Request
+            var requestBody = JsonSerializer.Serialize(new { request = base64Payload });
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+            request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
             request.Headers.Add("X-VERIFY", signature);
+            request.Headers.Add("X-MERCHANT-ID", MerchantId);   // 🔑 Required
+            
 
             if (!string.IsNullOrEmpty(idempotencyKey))
                 request.Headers.Add("Idempotency-Key", idempotencyKey);
 
+            // 4. Send
             var response = await _httpClient.SendAsync(request);
-            var body = await response.Content.ReadAsStringAsync();
+            string body = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
@@ -66,16 +89,21 @@ namespace APiLoginWebApplication.Services
             };
         }
 
+        /// <summary>
+        /// Check payment status
+        /// </summary>
         public async Task<StatusResponseDto> CheckStatusAsync(string merchantTransactionId)
         {
-            string url = $"{BaseUrl}/status/{MerchantId}/{merchantTransactionId}";
-            string signature = GenerateSignature(merchantTransactionId);
+            string apiEndpoint = $"/pg/v1/status/{MerchantId}/{merchantTransactionId}";
+            string url = $"{BaseUrl.TrimEnd('/')}{apiEndpoint}";
+
+            string signature = GenerateStatusSignature(apiEndpoint);
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("X-VERIFY", signature);
 
             var response = await _httpClient.SendAsync(request);
-            var body = await response.Content.ReadAsStringAsync();
+            string body = await response.Content.ReadAsStringAsync();
 
             return new StatusResponseDto
             {
@@ -86,24 +114,50 @@ namespace APiLoginWebApplication.Services
             };
         }
 
+        /// <summary>
+        /// Handle webhook callback
+        /// </summary>
         public Task HandleWebhookAsync(WebhookPayloadDto payload, string signatureHeader)
         {
-            // 1. Verify signature
-            string expectedSignature = GenerateSignature(JsonSerializer.Serialize(payload));
-            if (expectedSignature != signatureHeader)
+            string payloadJson = JsonSerializer.Serialize(payload);
+            string expectedSignature = GenerateWebhookSignature(payloadJson);
+
+            if (!string.Equals(expectedSignature, signatureHeader, StringComparison.OrdinalIgnoreCase))
                 throw new UnauthorizedAccessException("Invalid webhook signature");
 
-            // 2. Save/update DB record for transaction
-            // Example: _db.Payments.UpdateStatus(payload.TransactionId, payload.Status);
-
+            // TODO: update DB transaction status
             return Task.CompletedTask;
         }
 
-        private string GenerateSignature(string data)
+        // -------------------- PRIVATE HELPERS --------------------
+
+        // For /pg/v1/pay
+        private string GeneratePaySignature(string base64Payload, string apiEndpoint)
         {
-            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(SaltKey));
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
-            return Convert.ToHexString(hash).ToLower();
+            string dataToHash = base64Payload + apiEndpoint + SaltKey;
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(dataToHash));
+            var hashHex = Convert.ToHexString(hashBytes).ToLower();
+            return $"{hashHex}###{SaltIndex}";
+        }
+
+        // For /pg/v1/status
+        private string GenerateStatusSignature(string apiEndpoint)
+        {
+            string dataToHash = apiEndpoint + SaltKey;
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(dataToHash));
+            var hashHex = Convert.ToHexString(hashBytes).ToLower();
+            return $"{hashHex}###{SaltIndex}";
+        }
+
+        // For webhook verification
+        private string GenerateWebhookSignature(string payloadJson)
+        {
+            string dataToHash = payloadJson + SaltKey;
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(dataToHash));
+            return Convert.ToHexString(hashBytes).ToLower();
         }
     }
 }
