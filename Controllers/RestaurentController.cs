@@ -1,6 +1,7 @@
 ﻿using APiLoginWebApplication.Data;
 using APiLoginWebApplication.Models;
 using APiLoginWebApplication.Services.Interfaces;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,8 @@ namespace APiLoginWebApplication.Controllers
     {
         private readonly AppDbContext _context;
         public RestaurentController(AppDbContext context) => _context = context;
-        // GET api/users/roles
+        
+        // GET api/Restaurent/menus
         [HttpGet("menus")]
         public async Task<IActionResult> GetMenus()
         {
@@ -29,6 +31,33 @@ namespace APiLoginWebApplication.Controllers
                             }).ToListAsync(); // FIX: Ensure using Microsoft.EntityFrameworkCore and keep Select before ToListAsync
 
             return Ok(menuItems);
+        }
+
+        // GET api/Restaurent/testimonial
+        [HttpGet("testimonials")]
+        public async Task<IActionResult> GetTestimonials()
+        {
+            try {
+                var testimonials = await _context.Testimonials
+                    .Select(t => new
+                    {
+                        t.Id,
+                        t.Name,
+                        t.Role,
+                        t.Image,
+                        t.Rating,
+                        t.Review,
+                        t.ReviewDate
+                    }).ToListAsync(); // FIX: Ensure using Microsoft.EntityFrameworkCore and keep Select before ToListAsync
+                return Ok(testimonials);
+
+            }
+            catch (Exception ex) {
+                return Ok();
+            }
+
+
+
         }
     }
 }
