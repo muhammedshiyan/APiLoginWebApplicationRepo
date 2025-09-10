@@ -9,6 +9,7 @@ namespace APiLoginWebApplication.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
+        public DbSet<MenuItem> MenuItems { get; internal set; }
     }
 
     //public class User
@@ -29,4 +30,15 @@ namespace APiLoginWebApplication.Data
         public int RoleId { get; set; }
         public Role? Role { get; set; }
     }
+    public class MenuItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public decimal Price { get; set; }
+        public string Image { get; set; }
+        public string Category { get; set; }
+        public bool Featured { get; set; }
+    }
+
 }
