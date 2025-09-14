@@ -17,7 +17,7 @@ namespace APiLoginWebApplication.Controllers
         // GET api/Restaurent/menus
         [HttpGet("menus")]
         public async Task<IActionResult> GetMenus()
-        {
+       {
             var menuItems = await _context.MenuItems
                             .Select(m => new
                             {
@@ -55,9 +55,6 @@ namespace APiLoginWebApplication.Controllers
             catch (Exception ex) {
                 return Ok();
             }
-
-
-
         }
     }
 }
